@@ -1,21 +1,12 @@
+# main.tf actualizado
 provider "aws" {
-  region = "eu-west-1"
+  region = "us-east-1"
 }
 
-resource "aws_instance" "web" {
-  count         = 4
-  ami           = "ami-0c1c30571d2dae5c9" # Ubuntu (cambia según región)
-  instance_type = "t2.micro"
-
-  associate_public_ip_address = true
-
-  tags = {
-    Name = "web-${count.index}"
-  }
-}
-
+# Security Group para SSH
 resource "aws_security_group" "allow_ssh" {
-  name = "allow_ssh"
+  name        = "allow_ssh_us_east_1"
+  description = "Allow SSH inbound traffic"
 
   ingress {
     from_port   = 22
@@ -29,5 +20,36 @@ resource "aws_security_group" "allow_ssh" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# Buscar AMI más reciente de Ubuntu 22.04 LTS
+data "aws_ami" "ubuntu" {
+  most_recent = true
+
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+
+  owners = ["099720109477"] # Canonical
+}
+
+# Instancias EC2
+resource "aws_instance" "web" {
+  count         = 4
+  ami           = data.aws_ami.ubuntu.id
+  instance_type = "t3.micro"
+  associate_public_ip_address = true
+
+  vpc_security_group_ids = [aws_security_group.allow_ssh.id]
+
+  tags = {
+    Name = "web-${count.index}"
   }
 }
